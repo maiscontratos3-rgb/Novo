@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Relatório de Cobrança Mensal</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/docx/8.5.0/docx.umd.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #F8F7F4; --surface: #FFFFFF; --surface2: #F2F1EE;
+    --border: #E2E0DA; --border2: #C8C6BE;
+    --text: #1A1917; --text2: #6B6A65; --text3: #9E9C96;
+    --accent: #1B5FAD; --accent-light: #EBF2FB; --accent-dark: #0D3D73;
+    --green: #1A7A54; --green-light: #E8F5EE;
+    --orange: #B85C00; --orange-light: #FFF3E6;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+  }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; line-height: 1.5; }
+
+  .app-header { background: var(--accent); color: #fff; padding: 1.25rem 2rem; display: flex; align-items: center; gap: 1rem; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(27,95,173,0.25); }
+  .app-header .logo { width: 36px; height: 36px; background: rgba(255,255,255,0.15); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+  .app-header h1 { font-size: 1.05rem; font-weight: 600; letter-spacing: -0.01em; }
+  .app-header p { font-size: 0.78rem; opacity: 0.75; }
+
+  .stepper-wrap { background: var(--surface); border-bottom: 1px solid var(--border); padding: 1rem 2rem; }
+  .stepper { max-width: 760px; margin: 0 auto; display: flex; align-items: center; }
+  .step-item { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .step-num { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; transition: all 0.2s; border: 2px solid transparent; }
+  .step-num.idle { background: var(--surface2); color: var(--text3); border-color: var(--border); }
+  .step-num.active { background: var(--accent); color: #fff; }
+  .step-num.done { background: var(--green); color: #fff; }
+  .step-label { font-size: 13px; color: var(--text2); white-space: nowrap; }
+  .step-label.active { color: var(--accent); font-weight: 600; }
+  .step-label.done { color: var(--green); }
+  .step-divider { flex: 1; height: 1px; background: var(--border); margin: 0 12px; min-width: 16px; }
+
+  .main { max-width: 760px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem; box-shadow: var(--shadow); }
+  .card-title { font-size: 0.82rem; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text3); margin-bottom: 1rem; }
+
+  /* TABS */
+  .tab-bar { display: flex; gap: 4px; margin-bottom: 1.25rem; border-bottom: 2px solid var(--border); }
+  .tab-btn { padding: 8px 16px; font-size: 13px; font-weight: 600; border: none; background: none; cursor: pointer; color: var(--text3); border-bottom: 3px solid transparent; margin-bottom: -2px; border-radius: 6px 6px 0 0; transition: all 0.15s; }
+  .tab-btn:hover { color: var(--text2); background: var(--surface2); }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-btn.orange.active { color: var(--orange); border-bottom-color: var(--orange); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .month-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .month-row label { font-size: 14px; color: var(--text2); font-weight: 500; }
+  .month-row input[type=month] { padding: 8px 12px; border: 1px solid var(--border2); border-radius: 8px; font-size: 14px; color: var(--text); background: var(--surface); cursor: pointer; }
+  .month-row input[type=month]:focus { outline: none; border-color: var(--accent); }
+
+  .service-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+  .service-card { border: 1.5px solid var(--border); border-radius: 10px; padding: 12px 14px; cursor: pointer; transition: border-color 0.15s, background 0.15s, transform 0.1s; background: var(--surface); position: relative; user-select: none; }
+  .service-card:hover { border-color: var(--accent); transform: translateY(-1px); box-shadow: var(--shadow-md); }
+  .service-card.selected { border-color: var(--accent); background: var(--accent-light); }
+  .service-card.orange:hover { border-color: var(--orange); }
+  .service-card.orange.selected { border-color: var(--orange); background: var(--orange-light); }
+  .service-card .sc-name { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+  .service-card.selected .sc-name { color: var(--accent-dark); }
+  .service-card.orange.selected .sc-name { color: var(--orange); }
+  .service-card .sc-price { font-size: 12px; color: var(--text3); }
+  .service-card.selected .sc-price { color: var(--accent); }
+  .service-card.orange.selected .sc-price { color: var(--orange); }
+  .sc-check { position: absolute; top: 10px; right: 10px; width: 20px; height: 20px; border-radius: 50%; background: var(--accent); display: none; align-items: center; justify-content: center; font-size: 11px; color: #fff; }
+  .service-card.orange .sc-check { background: var(--orange); }
+  .service-card.selected .sc-check { display: flex; }
+  .sc-input-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed rgba(27,95,173,0.2); }
+  .service-card.orange .sc-input-row { border-top-color: rgba(184,92,0,0.2); }
+  .sc-input-row label { font-size: 12px; color: var(--accent); font-weight: 500; white-space: nowrap; }
+  .service-card.orange .sc-input-row label { color: var(--orange); }
+  .sc-input-row input { width: 90px; padding: 5px 8px; border: 1px solid var(--accent); border-radius: 6px; font-size: 13px; color: var(--text); background: var(--surface); text-align: center; }
+  .service-card.orange .sc-input-row input { border-color: var(--orange); }
+  .sc-input-row input:focus { outline: none; }
+
+  .fixed-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+  .fixed-card { border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; background: var(--surface); }
+  .fixed-card .fc-name { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .fixed-card .fc-value { font-size: 1.25rem; font-weight: 700; color: var(--green); margin-bottom: 4px; }
+  .fixed-card .fc-hint { font-size: 11px; color: var(--text3); }
+
+  .total-bar { background: linear-gradient(135deg, var(--accent) 0%, #2471C8 100%); border-radius: 12px; padding: 1rem 1.5rem; display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; color: #fff; }
+  .total-bar .tb-label { font-size: 14px; opacity: 0.85; font-weight: 500; }
+  .total-bar .tb-value { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.02em; }
+
+  .btn-row { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.15s; border: none; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: var(--accent-dark); }
+  .btn-secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border2); }
+  .btn-secondary:hover { background: var(--surface2); }
+  .btn-success { background: var(--green); color: #fff; }
+  .btn-success:hover { background: #145f41; }
+  .btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* CLIENT BLOCKS */
+  .client-block { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; }
+  .client-block.orange { border-color: #F5C68A; background: #FFFAF4; }
+  .cb-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 6px; }
+  .service-badge { font-size: 12px; font-weight: 600; color: var(--accent); background: var(--accent-light); border-radius: 6px; padding: 4px 10px; }
+  .service-badge.orange { color: var(--orange); background: var(--orange-light); }
+  .client-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+  .client-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .client-row .cr-label { font-size: 12px; color: var(--text3); min-width: 68px; }
+  .client-row input, .client-row select {
+    padding: 7px 10px; border: 1px solid var(--border2); border-radius: 7px;
+    font-size: 13px; color: var(--text); background: var(--surface); transition: border-color 0.15s;
+  }
+  .client-row input:focus, .client-row select:focus { outline: none; border-color: var(--accent); }
+  .client-row input::placeholder { color: var(--text3); }
+  .client-row .inp-name { flex: 2; min-width: 120px; }
+  .client-row .inp-pct { width: 90px; }
+  .client-row .inp-valor { width: 110px; }
+  .client-row .inp-calc { width: 110px; background: var(--green-light); color: var(--green); font-weight: 600; border-color: #9ED4B8; cursor: default; }
+  .col-label { font-size: 11px; color: var(--text3); text-align: center; }
+  .rescisao-header { display: grid; grid-template-columns: 68px 1fr 90px 110px 110px; gap: 8px; margin-bottom: 4px; padding: 0 0 4px; border-bottom: 1px dashed var(--border); }
+  @media (max-width: 600px) { .rescisao-header { display: none; } }
+  .btn-add-client { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; color: var(--accent); background: none; border: 1.5px dashed var(--accent); border-radius: 7px; padding: 5px 12px; cursor: pointer; transition: background 0.15s; }
+  .btn-add-client:hover { background: var(--accent-light); }
+  .btn-remove { background: none; border: none; cursor: pointer; color: var(--text3); padding: 4px; border-radius: 4px; transition: color 0.15s; font-size: 14px; line-height: 1; flex-shrink: 0; }
+  .btn-remove:hover { color: #C0392B; }
+
+  .resumo-row { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; margin-bottom: 8px; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+  .rr-name { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+  .rr-clients { font-size: 12px; color: var(--text3); }
+  .rr-value { font-size: 15px; font-weight: 700; color: var(--accent); white-space: nowrap; }
+  .resumo-total { background: var(--green-light); border: 1px solid #9ED4B8; border-radius: 10px; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
+  .resumo-total .rt-label { font-size: 14px; font-weight: 600; color: var(--green); }
+  .resumo-total .rt-value { font-size: 1.3rem; font-weight: 700; color: var(--green); }
+  .empty-state { text-align: center; padding: 2rem 1rem; color: var(--text3); font-size: 14px; }
+
+  @media (max-width: 600px) { .main { padding: 1rem 1rem 3rem; } .app-header { padding: 1rem; } .stepper-wrap { padding: 0.75rem 1rem; } .step-label { display: none; } }
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="logo">📋</div>
+  <div>
+    <h1>Relatório de Cobrança</h1>
+    <p>Preencha os serviços e gere o documento Word</p>
+  </div>
+</header>
+
+<div class="stepper-wrap">
+  <div class="stepper">
+    <div class="step-item"><div class="step-num active" id="snum1">1</div><span class="step-label active" id="slbl1">Serviços</span></div>
+    <div class="step-divider"></div>
+    <div class="step-item"><div class="step-num idle" id="snum2">2</div><span class="step-label" id="slbl2">Clientes</span></div>
+    <div class="step-divider"></div>
+    <div class="step-item"><div class="step-num idle" id="snum3">3</div><span class="step-label" id="slbl3">Gerar relatório</span></div>
+  </div>
+</div>
+
+<main class="main">
+
+  <!-- STEP 1 -->
+  <div id="step1">
+    <div class="card">
+      <div class="card-title">📅 Período de referência</div>
+      <div class="month-row">
+        <label for="mes-ref">Mês / Ano:</label>
+        <input type="month" id="mes-ref">
+      </div>
+    </div>
+
+    <div class="card">
+      <!-- TABS -->
+      <div class="tab-bar">
+        <button class="tab-btn active" onclick="switchTab('tab-fixo', this)">⚖️ Serviços por Valor</button>
+        <button class="tab-btn orange" onclick="switchTab('tab-variavel', this)">📊 Serviço Variável</button>
+        <button class="tab-btn" onclick="switchTab('tab-fixos', this)">📌 Serviços Fixos</button>
+      </div>
+
+      <!-- ABA 1: Serviços por valor fixo -->
+      <div id="tab-fixo" class="tab-panel active">
+        <div class="service-grid" id="services-grid"></div>
+      </div>
+
+      <!-- ABA 2: Serviço Variável (Rescisão + Dinheiro Recuperado) -->
+      <div id="tab-variavel" class="tab-panel">
+        <p style="font-size:13px;color:var(--text2);margin-bottom:1rem">
+          Informe as quantidades. Os valores serão preenchidos na próxima etapa.
+        </p>
+        <div style="display:flex;flex-wrap:wrap;gap:14px">
+          <div style="flex:1;min-width:220px">
+            <div class="service-card orange" id="card-rescisao">
+              <div class="sc-check">✓</div>
+              <div class="sc-name">Rescisão</div>
+              <div class="sc-price">15% ou 20% do valor — definido por cliente</div>
+            </div>
+            <div id="rescisao-qty-wrap" style="display:none;margin-top:10px;background:var(--orange-light);border-radius:8px;padding:10px 12px">
+              <div style="display:flex;align-items:center;gap:8px">
+                <label style="color:var(--orange);font-size:12px;font-weight:500;white-space:nowrap">Quantidade:</label>
+                <input type="number" min="1" step="1" value="1" id="rescisao-qty"
+                  style="width:80px;padding:5px 8px;border:1px solid var(--orange);border-radius:6px;font-size:13px;text-align:center"
+                  oninput="state.rescisao.qty=parseInt(this.value)||1;calcTotal()">
+              </div>
+            </div>
+          </div>
+          <div style="flex:1;min-width:220px">
+            <div class="service-card orange" id="card-dinheiro">
+              <div class="sc-check">✓</div>
+              <div class="sc-name">Dinheiro Recuperado</div>
+              <div class="sc-price">20% do valor recuperado</div>
+            </div>
+            <div id="dinheiro-qty-wrap" style="display:none;margin-top:10px;background:var(--orange-light);border-radius:8px;padding:10px 12px">
+              <div style="display:flex;align-items:center;gap:8px">
+                <label style="color:var(--orange);font-size:12px;font-weight:500;white-space:nowrap">Quantidade:</label>
+                <input type="number" min="1" step="1" value="1" id="dinheiro-qty"
+                  style="width:80px;padding:5px 8px;border:1px solid var(--orange);border-radius:6px;font-size:13px;text-align:center"
+                  oninput="state.dinheiro.qty=parseInt(this.value)||1;calcTotal()">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ABA 3: Serviços fixos -->
+      <div id="tab-fixos" class="tab-panel">
+        <p style="font-size:13px;color:var(--text2);margin-bottom:1rem">
+          Valores pré-definidos, incluídos automaticamente no total.
+        </p>
+        <div class="fixed-grid" id="fixed-services"></div>
+      </div>
+    </div>
+
+    <div class="total-bar">
+      <span class="tb-label">Total estimado do mês</span>
+      <span class="tb-value" id="total-display">R$ 0,00</span>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="goStep2()">
+        Próximo: clientes
+        <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- STEP 2 -->
+  <div id="step2" style="display:none">
+    <div class="card" style="margin-bottom:1.5rem">
+      <div class="card-title">👥 Clientes por serviço</div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:1rem">Informe os nomes e dados de cada cliente.</p>
+      <div id="client-section"></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="goStep1()">
+        <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg> Voltar
+      </button>
+      <button class="btn btn-primary" onclick="goStep3()">
+        Ver resumo <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- STEP 3 -->
+  <div id="step3" style="display:none">
+    <div class="card" style="border-color:#9ED4B8;background:var(--green-light);margin-bottom:1rem">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:24px">✅</span>
+        <div>
+          <div style="font-weight:600;color:var(--green)">Tudo pronto!</div>
+          <div style="font-size:13px;color:var(--text2)" id="resumo-periodo"></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">📊 Resumo do relatório</div>
+      <div id="resumo-content"></div>
+    </div>
+    <div class="btn-row" style="margin-top:1rem">
+      <button class="btn btn-secondary" onclick="goStep2()">
+        <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg> Voltar
+      </button>
+      <button class="btn btn-secondary" onclick="novoRelatorio()">
+        <svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.82"/></svg> Novo relatório
+      </button>
+      <button class="btn btn-success" onclick="downloadDocx()">
+        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Baixar Word (.docx)
+      </button>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// Serviços de valor fixo por unidade
+const SERVICES = [
+  { id: 'contratos',    name: 'Contratos',                    type: 'qty', price: 45,  label: 'R$ 45,00 / unidade' },
+  { id: 'renov_gest',   name: 'Renovações – Gestores',        type: 'qty', price: 75,  label: 'R$ 75,00 / unidade' },
+  { id: 'termos',       name: 'Termos de quitação / Acordos', type: 'qty', price: 125, label: 'R$ 125,00 / unidade' },
+  { id: 'renov_cli',    name: 'Renovação – Clientes',         type: 'qty', price: 75,  label: 'R$ 75,00 / unidade' },
+];
+
+// Serviços fixos com valores pré-definidos
+const FIXED_SERVICES = [
+  { id: 'valor_fixo',    name: 'Valor Fixo Combinado',       value: 1600 },
+  { id: 'plano_premium', name: 'Plano Premium – Authentique', value: 100  },
+];
+
+const state = {
+  selected: {},       // serviços normais selecionados
+  clients: {},        // clientes por serviço
+  rescisao: { active: false, qty: 1, entries: [] }, // rescisões
+  dinheiro: { active: false, qty: 1, entries: [] }, // dinheiro recuperado (20%)
+  mesRef: '',
+};
+
+function fmt(v) {
+  return 'R$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function escHtml(s) {
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── TABS ──────────────────────────────────────────────────────────
+function switchTab(tabId, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(tabId).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ── STEP 1 ────────────────────────────────────────────────────────
+function buildStep1() {
+  // Serviços por valor
+  const grid = document.getElementById('services-grid');
+  grid.innerHTML = '';
+  SERVICES.forEach(s => {
+    const sel = !!state.selected[s.id];
+    const div = document.createElement('div');
+    div.className = 'service-card' + (sel ? ' selected' : '');
+    div.id = 'card-' + s.id;
+    div.innerHTML = `
+      <div class="sc-check">✓</div>
+      <div class="sc-name">${s.name}</div>
+      <div class="sc-price">${s.label}</div>
+      ${sel ? buildInputHTML(s) : ''}
+    `;
+    div.addEventListener('click', e => { if (e.target.tagName === 'INPUT') return; toggleService(s.id); });
+    grid.appendChild(div);
+  });
+
+  // Rescisão
+  const rescCard = document.getElementById('card-rescisao');
+  const rescWrap = document.getElementById('rescisao-qty-wrap');
+  if (state.rescisao.active) {
+    rescCard.classList.add('selected');
+    rescWrap.style.display = '';
+    document.getElementById('rescisao-qty').value = state.rescisao.qty;
+  } else {
+    rescCard.classList.remove('selected');
+    rescWrap.style.display = 'none';
+  }
+  rescCard.onclick = () => {
+    state.rescisao.active = !state.rescisao.active;
+    if (!state.rescisao.active) state.rescisao.qty = 1;
+    buildStep1();
+    calcTotal();
+  };
+
+  // Dinheiro Recuperado
+  const dinCard = document.getElementById('card-dinheiro');
+  const dinWrap = document.getElementById('dinheiro-qty-wrap');
+  if (state.dinheiro.active) {
+    dinCard.classList.add('selected');
+    dinWrap.style.display = '';
+    document.getElementById('dinheiro-qty').value = state.dinheiro.qty;
+  } else {
+    dinCard.classList.remove('selected');
+    dinWrap.style.display = 'none';
+  }
+  dinCard.onclick = () => {
+    state.dinheiro.active = !state.dinheiro.active;
+    if (!state.dinheiro.active) state.dinheiro.qty = 1;
+    buildStep1();
+    calcTotal();
+  };
+
+  // Fixos — exibir como info, não editáveis
+  const fixedDiv = document.getElementById('fixed-services');
+  fixedDiv.innerHTML = '';
+  FIXED_SERVICES.forEach(fs => {
+    const div = document.createElement('div');
+    div.className = 'fixed-card';
+    div.innerHTML = `
+      <div class="fc-name">${fs.name}</div>
+      <div class="fc-value">${fmt(fs.value)}</div>
+      <div class="fc-hint">Incluído automaticamente no total</div>
+    `;
+    fixedDiv.appendChild(div);
+  });
+
+  calcTotal();
+}
+
+function buildInputHTML(s) {
+  if (s.type === 'qty') {
+    const qty = (state.selected[s.id] && state.selected[s.id].qty) || 1;
+    return `<div class="sc-input-row">
+      <label>Quantidade:</label>
+      <input type="number" min="1" step="1" value="${qty}"
+        onclick="event.stopPropagation()"
+        oninput="event.stopPropagation();state.selected['${s.id}'].qty=parseInt(this.value)||1;syncClients('${s.id}');calcTotal()">
+    </div>`;
+  } else {
+    const val = (state.selected[s.id] && state.selected[s.id].value != null) ? state.selected[s.id].value : '';
+    return `<div class="sc-input-row">
+      <label>Valor base (R$):</label>
+      <input type="number" min="0" step="0.01" placeholder="0,00" value="${val}"
+        onclick="event.stopPropagation()"
+        oninput="event.stopPropagation();state.selected['${s.id}'].value=parseFloat(this.value)||0;calcTotal()">
+    </div>`;
+  }
+}
+
+function toggleService(id) {
+  if (state.selected[id]) { delete state.selected[id]; }
+  else {
+    const s = SERVICES.find(x => x.id === id);
+    state.selected[id] = s.type === 'qty' ? { qty: 1 } : { value: 0 };
+  }
+  buildStep1();
+}
+
+function calcTotal() {
+  let total = 0;
+  SERVICES.forEach(s => {
+    if (!state.selected[s.id]) return;
+    total += s.type === 'qty'
+      ? s.price * (state.selected[s.id].qty || 1)
+      : (s.rate / 100) * (state.selected[s.id].value || 0);
+  });
+  // Rescisões: soma dos valores calculados (15% ou 20%)
+  if (state.rescisao.active) {
+    state.rescisao.entries.forEach(e => { total += e.calc || 0; });
+  }
+  // Dinheiro Recuperado: 20% de cada entrada
+  if (state.dinheiro.active) {
+    state.dinheiro.entries.forEach(e => { total += e.calc || 0; });
+  }
+  // Fixos sempre incluídos
+  FIXED_SERVICES.forEach(fs => { total += fs.value; });
+  document.getElementById('total-display').textContent = fmt(total);
+}
+
+// ── SYNC CLIENTES por qty ─────────────────────────────────────────
+function syncClients(sid) {
+  const s = SERVICES.find(x => x.id === sid);
+  if (!s || s.type !== 'qty') return;
+  const qty = (state.selected[sid] && state.selected[sid].qty) || 1;
+  if (!state.clients[sid]) state.clients[sid] = [];
+  while (state.clients[sid].length < qty) state.clients[sid].push({ name: '' });
+  if (state.clients[sid].length > qty) state.clients[sid] = state.clients[sid].slice(0, qty);
+}
+
+// ── STEP 2 ────────────────────────────────────────────────────────
+function goStep1() {
+  document.getElementById('step1').style.display = '';
+  document.getElementById('step2').style.display = 'none';
+  document.getElementById('step3').style.display = 'none';
+  setStepUI(1);
+}
+
+function goStep2() {
+  state.mesRef = document.getElementById('mes-ref').value;
+  document.getElementById('step1').style.display = 'none';
+  document.getElementById('step2').style.display = '';
+  document.getElementById('step3').style.display = 'none';
+  setStepUI(2);
+  buildClientSection();
+}
+
+function buildClientSection() {
+  const sec = document.getElementById('client-section');
+  sec.innerHTML = '';
+
+  const activeNormal = SERVICES.filter(s => state.selected[s.id]);
+  const hasRescisao = state.rescisao.active;
+  const hasDinheiro = state.dinheiro.active;
+
+  if (!activeNormal.length && !hasRescisao && !hasDinheiro) {
+    sec.innerHTML = '<div class="empty-state">Nenhum serviço selecionado. Volte e marque ao menos um.</div>';
+    return;
+  }
+
+  // Blocos de serviços normais
+  activeNormal.forEach(s => {
+    const origS = SERVICES.find(x => x.id === s.id);
+    if (origS && origS.type === 'qty') syncClients(s.id);
+    else if (!state.clients[s.id]) state.clients[s.id] = [{ name: '' }];
+    const block = document.createElement('div');
+    block.className = 'client-block';
+    block.id = 'cb-' + s.id;
+    sec.appendChild(block);
+    renderClientBlock(s.id);
+  });
+
+  // Bloco especial de rescisão
+  if (hasRescisao) {
+    const qty = state.rescisao.qty || 1;
+    while (state.rescisao.entries.length < qty) state.rescisao.entries.push({ name: '', pct: 15, valor: 0, calc: 0 });
+    if (state.rescisao.entries.length > qty) state.rescisao.entries = state.rescisao.entries.slice(0, qty);
+    const block = document.createElement('div');
+    block.className = 'client-block orange';
+    block.id = 'cb-rescisao';
+    sec.appendChild(block);
+    renderRescisaoBlock();
+  }
+
+  // Bloco especial de dinheiro recuperado
+  if (hasDinheiro) {
+    const qty = state.dinheiro.qty || 1;
+    while (state.dinheiro.entries.length < qty) state.dinheiro.entries.push({ name: '', valor: 0, calc: 0 });
+    if (state.dinheiro.entries.length > qty) state.dinheiro.entries = state.dinheiro.entries.slice(0, qty);
+    const block = document.createElement('div');
+    block.className = 'client-block orange';
+    block.id = 'cb-dinheiro';
+    sec.appendChild(block);
+    renderDinheiroBlock();
+  }
+}
+
+function renderClientBlock(sid) {
+  const s = [...SERVICES, ...FIXED_SERVICES].find(x => x.id === sid);
+  const origS = SERVICES.find(x => x.id === sid);
+  const isQty = origS && origS.type === 'qty';
+  const block = document.getElementById('cb-' + sid);
+  const clients = state.clients[sid] || [{ name: '' }];
+  const qty = isQty ? ((state.selected[sid] && state.selected[sid].qty) || 1) : null;
+  block.innerHTML = `
+    <div class="cb-header">
+      <span class="service-badge">${s.name}</span>
+      ${isQty ? `<span style="font-size:12px;color:var(--text3)">${qty} campo${qty>1?'s':''} gerado${qty>1?'s':''} automaticamente</span>` : ''}
+    </div>
+    <div class="client-list">
+      ${clients.map((c, i) => `
+        <div class="client-row">
+          <span class="cr-label">Cliente ${i+1}</span>
+          <input type="text" class="inp-name" placeholder="Nome do cliente" value="${escHtml(c.name)}"
+            oninput="state.clients['${sid}'][${i}].name=this.value">
+          ${!isQty && clients.length > 1 ? `<button class="btn-remove" onclick="removeClient('${sid}',${i})">✕</button>` : ''}
+        </div>
+      `).join('')}
+    </div>
+    ${!isQty ? `<button class="btn-add-client" onclick="addClient('${sid}')">+ Adicionar cliente</button>` : ''}
+  `;
+}
+
+function renderRescisaoBlock() {
+  const block = document.getElementById('cb-rescisao');
+  const entries = state.rescisao.entries;
+  block.innerHTML = `
+    <div class="cb-header">
+      <span class="service-badge orange">Rescisão</span>
+      <span style="font-size:12px;color:var(--text3)">${entries.length} entrada${entries.length>1?'s':''}</span>
+    </div>
+    <div class="rescisao-header">
+      <span></span>
+      <span class="col-label">Nome do cliente</span>
+      <span class="col-label">%</span>
+      <span class="col-label">Valor pago (R$)</span>
+      <span class="col-label">Valor cobrado</span>
+    </div>
+    <div class="client-list" id="rescisao-list">
+      ${entries.map((e, i) => rescisaoRowHTML(e, i)).join('')}
+    </div>
+  `;
+}
+
+function rescisaoRowHTML(e, i) {
+  const calc = e.calc || 0;
+  return `<div class="client-row" id="resc-row-${i}">
+    <span class="cr-label">Rescisão ${i+1}</span>
+    <input type="text" class="inp-name" placeholder="Nome do cliente" value="${escHtml(e.name)}"
+      oninput="state.rescisao.entries[${i}].name=this.value">
+    <select class="inp-pct" onchange="state.rescisao.entries[${i}].pct=parseInt(this.value);calcRescisao(${i})">
+      <option value="15" ${e.pct===15?'selected':''}>15%</option>
+      <option value="20" ${e.pct===20?'selected':''}>20%</option>
+    </select>
+    <input type="number" class="inp-valor" min="0" step="0.01" placeholder="0,00" value="${e.valor||''}"
+      oninput="state.rescisao.entries[${i}].valor=parseFloat(this.value)||0;calcRescisao(${i})">
+    <input type="text" class="inp-calc" id="calc-${i}" value="${calc>0?fmt(calc):''}" readonly placeholder="—">
+  </div>`;
+}
+
+function calcRescisao(i) {
+  const e = state.rescisao.entries[i];
+  e.calc = (e.pct / 100) * (e.valor || 0);
+  const el = document.getElementById('calc-' + i);
+  if (el) el.value = e.calc > 0 ? fmt(e.calc) : '';
+  calcTotal();
+}
+
+function renderDinheiroBlock() {
+  const block = document.getElementById('cb-dinheiro');
+  const entries = state.dinheiro.entries;
+  block.innerHTML = `
+    <div class="cb-header">
+      <span class="service-badge orange">Dinheiro Recuperado</span>
+      <span style="font-size:12px;color:var(--text3)">${entries.length} entrada${entries.length>1?'s':''} — 20% do valor</span>
+    </div>
+    <div class="rescisao-header" style="grid-template-columns:68px 1fr 110px 110px">
+      <span></span>
+      <span class="col-label">Nome do cliente</span>
+      <span class="col-label">Valor recuperado (R$)</span>
+      <span class="col-label">Valor cobrado (20%)</span>
+    </div>
+    <div class="client-list">
+      ${entries.map((e, i) => dinheiroRowHTML(e, i)).join('')}
+    </div>
+  `;
+}
+
+function dinheiroRowHTML(e, i) {
+  const calc = e.calc || 0;
+  return `<div class="client-row" id="din-row-${i}">
+    <span class="cr-label">Item ${i+1}</span>
+    <input type="text" class="inp-name" placeholder="Nome do cliente" value="${escHtml(e.name)}"
+      oninput="state.dinheiro.entries[${i}].name=this.value">
+    <input type="number" class="inp-valor" min="0" step="0.01" placeholder="0,00" value="${e.valor||''}"
+      oninput="state.dinheiro.entries[${i}].valor=parseFloat(this.value)||0;calcDinheiro(${i})">
+    <input type="text" class="inp-calc" id="din-calc-${i}" value="${calc>0?fmt(calc):''}" readonly placeholder="—">
+  </div>`;
+}
+
+function calcDinheiro(i) {
+  const e = state.dinheiro.entries[i];
+  e.calc = 0.20 * (e.valor || 0);
+  const el = document.getElementById('din-calc-' + i);
+  if (el) el.value = e.calc > 0 ? fmt(e.calc) : '';
+  calcTotal();
+}
+
+function addClient(sid) {
+  if (!state.clients[sid]) state.clients[sid] = [];
+  state.clients[sid].push({ name: '' });
+  renderClientBlock(sid);
+}
+function removeClient(sid, idx) {
+  state.clients[sid].splice(idx, 1);
+  renderClientBlock(sid);
+}
+
+// ── STEP 3 ────────────────────────────────────────────────────────
+function goStep3() {
+  document.getElementById('step1').style.display = 'none';
+  document.getElementById('step2').style.display = 'none';
+  document.getElementById('step3').style.display = '';
+  setStepUI(3);
+  buildResumo();
+}
+
+function buildResumo() {
+  const mesLabel = state.mesRef ? formatMes(state.mesRef) : 'Período não informado';
+  document.getElementById('resumo-periodo').textContent = 'Período: ' + mesLabel;
+  const div = document.getElementById('resumo-content');
+  div.innerHTML = '';
+  let total = 0;
+
+  // Serviços normais
+  SERVICES.filter(s => state.selected[s.id]).forEach(s => {
+    const valor = calcValor(s);
+    total += valor;
+    const clients = (state.clients[s.id]||[]).filter(c=>c.name.trim()).map(c=>c.name).join(', ')||'—';
+    addResumoRow(div, s.name, clients, valor);
+  });
+
+  // Rescisões
+  if (state.rescisao.active && state.rescisao.entries.length) {
+    const totalResc = state.rescisao.entries.reduce((a,e)=>a+(e.calc||0),0);
+    total += totalResc;
+    const detail = state.rescisao.entries.map((e,i)=>`${e.name||'Rescisão '+(i+1)}: ${e.pct}% de ${fmt(e.valor||0)} = ${fmt(e.calc||0)}`).join(' | ');
+    addResumoRow(div, 'Rescisão', detail, totalResc);
+  }
+
+  // Dinheiro Recuperado
+  if (state.dinheiro.active && state.dinheiro.entries.length) {
+    const totalDin = state.dinheiro.entries.reduce((a,e)=>a+(e.calc||0),0);
+    total += totalDin;
+    const detail = state.dinheiro.entries.map((e,i)=>`${e.name||'Item '+(i+1)}: 20% de ${fmt(e.valor||0)} = ${fmt(e.calc||0)}`).join(' | ');
+    addResumoRow(div, 'Dinheiro Recuperado', detail, totalDin);
+  }
+
+  // Fixos
+  FIXED_SERVICES.forEach(fs => {
+    total += fs.value;
+    addResumoRow(div, fs.name, 'Valor fixo', fs.value);
+  });
+
+  const tot = document.createElement('div');
+  tot.className = 'resumo-total';
+  tot.innerHTML = `<span class="rt-label">Total do mês</span><span class="rt-value">${fmt(total)}</span>`;
+  div.appendChild(tot);
+}
+
+function addResumoRow(container, name, clients, valor) {
+  const row = document.createElement('div');
+  row.className = 'resumo-row';
+  row.innerHTML = `
+    <div style="flex:1;min-width:0">
+      <div class="rr-name">${name}</div>
+      <div class="rr-clients" style="word-break:break-word">${clients}</div>
+    </div>
+    <div class="rr-value">${fmt(valor)}</div>
+  `;
+  container.appendChild(row);
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────
+function calcValor(s) {
+  const orig = SERVICES.find(x => x.id === s.id);
+  if (!orig) return 0;
+  return orig.type === 'qty'
+    ? orig.price * (state.selected[s.id].qty || 1)
+    : (orig.rate / 100) * (state.selected[s.id].value || 0);
+}
+
+function formatMes(val) {
+  if (!val) return '';
+  const [y, m] = val.split('-');
+  const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  return meses[parseInt(m)-1] + ' de ' + y;
+}
+
+function setStepUI(step) {
+  [1,2,3].forEach(i => {
+    const num = document.getElementById('snum'+i);
+    const lbl = document.getElementById('slbl'+i);
+    if (i < step) { num.className='step-num done'; num.textContent='✓'; }
+    else if (i === step) { num.className='step-num active'; num.textContent=i; }
+    else { num.className='step-num idle'; num.textContent=i; }
+    lbl.className = 'step-label'+(i===step?' active':i<step?' done':'');
+  });
+}
+
+function novoRelatorio() {
+  Object.keys(state.selected).forEach(k=>delete state.selected[k]);
+  Object.keys(state.clients).forEach(k=>delete state.clients[k]);
+  state.rescisao.active=false; state.rescisao.qty=1; state.rescisao.entries=[];
+  state.dinheiro.active=false; state.dinheiro.qty=1; state.dinheiro.entries=[];
+  goStep1(); buildStep1();
+}
+
+// ── DOCX ──────────────────────────────────────────────────────────
+async function downloadDocx() {
+  const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
+    AlignmentType, WidthType, BorderStyle, ShadingType } = docx;
+
+  const mesLabel = state.mesRef ? formatMes(state.mesRef) : 'Período não informado';
+  const border = { style: BorderStyle.SINGLE, size: 1, color: 'DDDDDD' };
+  const borders = { top:border, bottom:border, left:border, right:border };
+
+  const hCell = (text, w) => new TableCell({
+    borders, shading: { fill:'1B5FAD', type: ShadingType.CLEAR },
+    margins:{top:100,bottom:100,left:120,right:120},
+    width:{size:w,type:WidthType.DXA},
+    children:[new Paragraph({alignment:AlignmentType.CENTER, children:[new TextRun({text,bold:true,color:'FFFFFF',font:'Arial',size:20})]})]
+  });
+
+  const dCell = (text, w, align, fill) => new TableCell({
+    borders, shading:{fill:fill||'FFFFFF',type:ShadingType.CLEAR},
+    margins:{top:80,bottom:80,left:120,right:120},
+    width:{size:w,type:WidthType.DXA},
+    children:[new Paragraph({alignment:align||AlignmentType.LEFT, children:[new TextRun({text,font:'Arial',size:19})]})]
+  });
+
+  // Tabela principal: Serviço | Clientes | Valor
+  const mainRows = [
+    new TableRow({ children:[ hCell('Serviço',3600), hCell('Clientes',4000), hCell('Valor (R$)',1760) ] })
+  ];
+
+  let grandTotal = 0;
+  let rowIdx = 0;
+
+  const addRow = (nome, clientesTxt, valor) => {
+    grandTotal += valor;
+    const fill = rowIdx++ % 2 === 0 ? 'F4F8FD' : 'FFFFFF';
+    mainRows.push(new TableRow({ children:[
+      dCell(nome, 3600, AlignmentType.LEFT, fill),
+      dCell(clientesTxt, 4000, AlignmentType.LEFT, fill),
+      dCell(fmt(valor), 1760, AlignmentType.RIGHT, fill),
+    ]}));
+  };
+
+  SERVICES.filter(s=>state.selected[s.id]).forEach(s => {
+    const valor = calcValor(s);
+    const clients = (state.clients[s.id]||[]).filter(c=>c.name.trim()).map(c=>c.name).join(', ')||'—';
+    addRow(s.name, clients, valor);
+  });
+
+  if (state.rescisao.active) {
+    state.rescisao.entries.forEach((e,i) => {
+      const nome = e.name.trim() || ('Rescisão '+(i+1));
+      const detalhe = `${e.pct}% de ${fmt(e.valor||0)}`;
+      addRow('Rescisão — '+nome, detalhe, e.calc||0);
+    });
+  }
+
+  if (state.dinheiro.active) {
+    state.dinheiro.entries.forEach((e,i) => {
+      const nome = e.name.trim() || ('Item '+(i+1));
+      const detalhe = `20% de ${fmt(e.valor||0)}`;
+      addRow('Dinheiro Recuperado — '+nome, detalhe, e.calc||0);
+    });
+  }
+
+  FIXED_SERVICES.forEach(fs => { addRow(fs.name, 'Valor fixo', fs.value); });
+
+  mainRows.push(new TableRow({ children:[
+    new TableCell({ borders, shading:{fill:'E8F4EE',type:ShadingType.CLEAR}, margins:{top:100,bottom:100,left:120,right:120}, width:{size:3600,type:WidthType.DXA},
+      children:[new Paragraph({children:[new TextRun({text:'',font:'Arial',size:19})]})] }),
+    new TableCell({ borders, shading:{fill:'E8F4EE',type:ShadingType.CLEAR}, margins:{top:100,bottom:100,left:120,right:120}, width:{size:4000,type:WidthType.DXA},
+      children:[new Paragraph({alignment:AlignmentType.RIGHT, children:[new TextRun({text:'TOTAL GERAL',bold:true,font:'Arial',size:21,color:'1A5E3A'})]})] }),
+    new TableCell({ borders, shading:{fill:'E8F4EE',type:ShadingType.CLEAR}, margins:{top:100,bottom:100,left:120,right:120}, width:{size:1760,type:WidthType.DXA},
+      children:[new Paragraph({alignment:AlignmentType.RIGHT, children:[new TextRun({text:fmt(grandTotal),bold:true,font:'Arial',size:21,color:'1A5E3A'})]})] }),
+  ]}));
+
+  const doc = new Document({
+    sections:[{
+      properties:{ page:{ size:{width:12240,height:15840}, margin:{top:1440,right:1080,bottom:1440,left:1080} } },
+      children:[
+        new Paragraph({alignment:AlignmentType.CENTER, spacing:{after:80}, children:[new TextRun({text:'RELATÓRIO DE ATIVIDADES E COBRANÇA',bold:true,font:'Arial',size:30,color:'1B5FAD'})]}),
+        new Paragraph({alignment:AlignmentType.CENTER, spacing:{after:480}, children:[new TextRun({text:mesLabel,font:'Arial',size:24,color:'888888'})]}),
+        new Table({width:{size:9360,type:WidthType.DXA}, columnWidths:[3600,4000,1760], rows:mainRows}),
+        new Paragraph({spacing:{before:480,after:0}, children:[new TextRun({text:'Documento gerado em '+new Date().toLocaleDateString('pt-BR')+'.', font:'Arial',size:18,color:'AAAAAA',italics:true})]}),
+      ]
+    }]
+  });
+
+  try {
+    const buffer = await Packer.toBuffer(doc);
+    const blob = new Blob([buffer], {type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'relatorio_' + (state.mesRef||'mensal') + '.docx';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
+  } catch(err) {
+    alert('Erro ao gerar o documento: ' + err.message);
+    console.error(err);
+  }
+}
+
+// ── INIT ──────────────────────────────────────────────────────────
+const now = new Date();
+document.getElementById('mes-ref').value = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+buildStep1();
+</script>
+</body>
+</html>
